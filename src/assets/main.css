@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for dark purple theme */
+body {
+  @apply bg-gradient-dark text-white overflow-x-hidden;
+}
+
+/* Glassmorphism card effect */
+.glass-card {
+  @apply bg-gradient-card backdrop-blur-xl border border-white/10 shadow-2xl;
+}
+
+/* Modern button styles */
+.btn-primary {
+  @apply bg-gradient-button hover:shadow-lg hover:shadow-primary-500/25 transform hover:scale-105 transition-all duration-300;
+}
+
+.btn-secondary {
+  @apply bg-purple-600/20 backdrop-blur-sm border border-purple-400/30 hover:bg-purple-500/30 transition-all duration-300;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-purple-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-purple-500;
+}
+
+/* Form input focus styles */
+input:focus, button:focus {
+  @apply outline-none ring-2 ring-primary-500/50;
+}
+
+/* Animated background for cards */
+.animated-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.animated-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Glow effects */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+.glow-teal {
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.3);
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  @apply transition-all duration-500;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  @apply opacity-0 transform scale-95;
+}
+
+/* Pulse animation for mining indicators */
+.mining-pulse {
+  animation: mining-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mining-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Modern gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-primary-400 via-purple-400 to-accent-cyan bg-clip-text text-transparent;
+}
+
+/* Card hover effects */
+.hover-lift {
+  @apply transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-xl;
+}
+
+/* Status indicators */
+.status-dot {
+  @apply w-2 h-2 rounded-full animate-pulse;
+}
+
+.status-connected {
+  @apply bg-accent-green shadow-lg shadow-accent-green/50;
+}
+
+.status-mining {
+  @apply bg-accent-blue shadow-lg shadow-accent-blue/50;
+}
+
+.status-disconnected {
+  @apply bg-red-500 shadow-lg shadow-red-500/50;
+} 

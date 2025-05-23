@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "strict": true,
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src/backend",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/backend/**/*",
+    "init-db.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+} 
