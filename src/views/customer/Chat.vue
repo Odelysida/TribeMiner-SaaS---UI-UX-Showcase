@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '../../stores/authStore'
+import { MockDataService, type MockChatMessage } from '../../lib/mockData'
 
 const authStore = useAuthStore()
 
@@ -8,53 +9,9 @@ const newMessage = ref('')
 const selectedChannel = ref('general')
 const isTyping = ref(false)
 const typingTimeout = ref<number>()
+const isLoading = ref(false)
 
-const messages = ref([
-  {
-    id: 1,
-    type: 'system',
-    content: 'Welcome to TribeMiner community chat! Please be respectful and follow our community guidelines.',
-    timestamp: new Date(Date.now() - 3600000),
-    sender: 'System',
-    channel: 'general'
-  },
-  {
-    id: 2,
-    type: 'user',
-    content: 'Hey everyone! Just started mining, any tips for beginners?',
-    timestamp: new Date(Date.now() - 3300000),
-    sender: 'CryptoNewbie',
-    channel: 'general',
-    avatar: 'https://ui-avatars.com/api/?name=CryptoNewbie&background=10b981&color=fff'
-  },
-  {
-    id: 3,
-    type: 'user',
-    content: 'Welcome! Make sure to keep your browser tab active for best mining performance',
-    timestamp: new Date(Date.now() - 3000000),
-    sender: 'ProMiner2024',
-    channel: 'general',
-    avatar: 'https://ui-avatars.com/api/?name=ProMiner2024&background=3b82f6&color=fff'
-  },
-  {
-    id: 4,
-    type: 'support',
-    content: 'If you need technical support, feel free to ask here or use our support bot!',
-    timestamp: new Date(Date.now() - 2700000),
-    sender: 'Support Team',
-    channel: 'support',
-    avatar: 'https://ui-avatars.com/api/?name=Support&background=8b5cf6&color=fff'
-  },
-  {
-    id: 5,
-    type: 'user',
-    content: 'Current hash rate looking good today! Pool seems stable 🚀',
-    timestamp: new Date(Date.now() - 1800000),
-    sender: 'HashMaster',
-    channel: 'mining',
-    avatar: 'https://ui-avatars.com/api/?name=HashMaster&background=f59e0b&color=fff'
-  }
-])
+const messages = ref<MockChatMessage[]>([])
 
 const channels = ref([
   { id: 'general', name: 'General', icon: 'fas fa-comments', color: 'text-primary-400' },
@@ -64,75 +21,68 @@ const channels = ref([
 ])
 
 const onlineUsers = ref([
-  { username: 'ProMiner2024', status: 'mining', avatar: 'https://ui-avatars.com/api/?name=ProMiner2024&background=3b82f6&color=fff' },
-  { username: 'CryptoNewbie', status: 'active', avatar: 'https://ui-avatars.com/api/?name=CryptoNewbie&background=10b981&color=fff' },
-  { username: 'HashMaster', status: 'mining', avatar: 'https://ui-avatars.com/api/?name=HashMaster&background=f59e0b&color=fff' },
-  { username: 'SilentMiner', status: 'away', avatar: 'https://ui-avatars.com/api/?name=SilentMiner&background=6b7280&color=fff' },
-  { username: 'TechSupport', status: 'active', avatar: 'https://ui-avatars.com/api/?name=TechSupport&background=8b5cf6&color=fff' }
+  { username: 'alice_miner', status: 'mining', avatar: 'https://ui-avatars.com/api/?name=Alice&background=10b981&color=fff' },
+  { username: 'user', status: 'active', avatar: 'https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff' },
+  { username: 'charlie_dev', status: 'mining', avatar: 'https://ui-avatars.com/api/?name=Charlie&background=ef4444&color=fff' },
+  { username: 'bob_crypto', status: 'away', avatar: 'https://ui-avatars.com/api/?name=Bob&background=f59e0b&color=fff' },
+  { username: 'admin', status: 'active', avatar: 'https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff' }
 ])
 
 const messagesContainer = ref<HTMLElement>()
 
+const loadMessages = async () => {
+  isLoading.value = true
+  try {
+    messages.value = await MockDataService.getChatMessages()
+  } catch (error) {
+    console.error('Failed to load chat messages:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const filteredMessages = computed(() => {
-  return messages.value
-    .filter(msg => msg.channel === selectedChannel.value)
-    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  // For demo purposes, show all messages in general channel
+  // In a real app, you'd filter by channel
+  return messages.value.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 })
 
 const sendMessage = async () => {
   if (!newMessage.value.trim() || !authStore.user) return
 
-  const userMessage = {
-    id: Date.now(),
-    type: 'user',
-    content: newMessage.value,
-    timestamp: new Date(),
-    sender: authStore.user.username,
-    channel: selectedChannel.value,
-    avatar: authStore.user.avatar
+  try {
+    const newMsg = await MockDataService.sendChatMessage(authStore.user.id, newMessage.value)
+    messages.value.push(newMsg)
+    newMessage.value = ''
+
+    // Scroll to bottom
+    await nextTick()
+    scrollToBottom()
+
+    // Simulate bot responses
+    setTimeout(() => {
+      const responses = [
+        'Welcome to the mining pool!',
+        'Great to see new miners joining!',
+        'Feel free to ask any questions.',
+        'Happy mining!'
+      ]
+      
+      const botMessage = {
+        id: Date.now().toString() + '_bot',
+        userId: 'bot',
+        username: 'TribeBot',
+        message: responses[Math.floor(Math.random() * responses.length)],
+        timestamp: new Date(),
+        avatar: 'https://ui-avatars.com/api/?name=Bot&background=6366f1&color=fff'
+      }
+      
+      messages.value.push(botMessage)
+      scrollToBottom()
+    }, 1000 + Math.random() * 2000)
+  } catch (error) {
+    console.error('Failed to send message:', error)
   }
-
-  messages.value.push(userMessage)
-  const messageContent = newMessage.value
-  newMessage.value = ''
-
-  // Scroll to bottom
-  await nextTick()
-  scrollToBottom()
-
-  // Simulate other users' responses in different channels
-  setTimeout(() => {
-    simulateResponse(messageContent)
-  }, 1000 + Math.random() * 2000)
-}
-
-const simulateResponse = (originalMessage: string) => {
-  const responses = [
-    "Great point! I've had similar experiences.",
-    "Thanks for sharing that insight!",
-    "That's really helpful information.",
-    "I agree with that approach.",
-    "Good question! I'm curious about that too.",
-    "The pool performance has been excellent lately.",
-    "Make sure to check your connection if you're having issues.",
-    "Welcome to the community! 🎉"
-  ]
-
-  const response = responses[Math.floor(Math.random() * responses.length)]
-  const randomUser = onlineUsers.value[Math.floor(Math.random() * onlineUsers.value.length)]
-
-  const botMessage = {
-    id: Date.now() + 1,
-    type: 'user',
-    content: response,
-    timestamp: new Date(),
-    sender: randomUser.username,
-    channel: selectedChannel.value,
-    avatar: randomUser.avatar
-  }
-
-  messages.value.push(botMessage)
-  nextTick(() => scrollToBottom())
 }
 
 const scrollToBottom = () => {
@@ -146,18 +96,6 @@ const formatTime = (date: Date) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
-}
-
-const formatRelativeTime = (date: Date) => {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  return date.toLocaleDateString()
 }
 
 const getStatusColor = (status: string) => {
@@ -186,7 +124,8 @@ const changeChannel = (channelId: string) => {
   nextTick(() => scrollToBottom())
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await loadMessages()
   scrollToBottom()
 })
 </script>
@@ -294,8 +233,8 @@ onMounted(() => {
         >
           <!-- Avatar -->
           <img 
-            :src="message.avatar || `https://ui-avatars.com/api/?name=${message.sender}&background=6b7280&color=fff`" 
-            :alt="message.sender"
+            :src="message.avatar || `https://ui-avatars.com/api/?name=${message.username}&background=6b7280&color=fff`" 
+            :alt="message.username"
             class="w-10 h-10 rounded-full flex-shrink-0"
           />
           
@@ -305,22 +244,15 @@ onMounted(() => {
               <span 
                 class="font-semibold text-white"
                 :class="{
-                  'text-red-400': message.type === 'system',
-                  'text-purple-400': message.type === 'support',
-                  'text-primary-400': message.sender === authStore.user?.username
+                  'text-primary-400': message.username === authStore.user?.username
                 }"
               >
-                {{ message.sender }}
+                {{ message.username }}
               </span>
               <span class="text-xs text-gray-500">{{ formatTime(message.timestamp) }}</span>
             </div>
-            <div 
-              class="text-gray-200 break-words"
-              :class="{
-                'bg-white/5 p-3 rounded-lg border border-white/10': message.type === 'system'
-              }"
-            >
-              {{ message.content }}
+            <div class="text-gray-200 break-words">
+              {{ message.message }}
             </div>
           </div>
           

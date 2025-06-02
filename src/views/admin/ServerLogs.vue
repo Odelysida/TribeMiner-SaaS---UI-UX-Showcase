@@ -1,103 +1,102 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { MockDataService, type MockServerLog } from '../../lib/mockData'
 
-interface LogEntry {
-  id: string
-  timestamp: Date
-  level: 'info' | 'warning' | 'error' | 'success'
-  category: 'system' | 'mining' | 'user' | 'security' | 'api'
-  message: string
-  details?: any
-  userId?: string
-  ip?: string
-}
-
-const logs = ref<LogEntry[]>([])
+const logs = ref<MockServerLog[]>([])
 const isLive = ref(true)
-const selectedLevel = ref<'all' | 'info' | 'warning' | 'error' | 'success'>('all')
-const selectedCategory = ref<'all' | 'system' | 'mining' | 'user' | 'security' | 'api'>('all')
+const selectedLevel = ref<'all' | 'info' | 'warning' | 'error' | 'debug'>('all')
+const selectedSource = ref<'all' | 'MiningService' | 'WebSocketHandler' | 'SystemMonitor' | 'ExternalService' | 'DatabaseService' | 'MiningCalculator'>('all')
 const searchQuery = ref('')
 const autoScroll = ref(true)
 const logsContainer = ref<HTMLElement>()
 const logsInterval = ref<number>()
+const isLoading = ref(false)
 
-// Generate mock logs
-const generateMockLog = (): LogEntry => {
-  const levels: LogEntry['level'][] = ['info', 'warning', 'error', 'success']
-  const categories: LogEntry['category'][] = ['system', 'mining', 'user', 'security', 'api']
+const loadLogs = async () => {
+  isLoading.value = true
+  try {
+    logs.value = await MockDataService.getServerLogs()
+    updateFilteredLogs()
+  } catch (error) {
+    console.error('Failed to load server logs:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Generate additional mock logs for live simulation
+const generateMockLog = (): MockServerLog => {
+  const levels: MockServerLog['level'][] = ['info', 'warning', 'error', 'debug']
+  const sources = ['MiningService', 'WebSocketHandler', 'SystemMonitor', 'ExternalService', 'DatabaseService', 'MiningCalculator']
   
   const messages = {
-    system: [
-      'Server started successfully',
-      'Database connection established',
-      'WebSocket server listening on port 3001',
-      'Scheduled backup completed',
-      'Memory usage: 67%'
+    MiningService: [
+      'Mining pool statistics updated successfully',
+      'New block found and validated',
+      'Pool difficulty adjusted automatically',
+      'Mining rewards distributed to participants',
+      'Hash rate calculation completed'
     ],
-    mining: [
-      'New mining session started',
-      'Pool difficulty adjusted to 1024',
-      'Block reward distributed',
-      'Mining pool statistics updated',
-      'Hash rate optimization completed'
-    ],
-    user: [
-      'User registered successfully',
-      'Wallet connection established',
-      'User profile updated',
-      'Password changed for user',
-      'User logout successful'
-    ],
-    security: [
-      'Failed login attempt detected',
-      'Security scan completed',
-      'Suspicious activity monitored',
-      'Rate limit exceeded',
-      'JWT token expired'
-    ],
-    api: [
-      'API request processed',
-      'Rate limit warning',
-      'External API call successful',
+    WebSocketHandler: [
+      'New miner connected successfully',
       'WebSocket connection established',
-      'Cache miss for key'
+      'Real-time data stream initiated',
+      'Connection timeout handled gracefully',
+      'Mining status update broadcasted'
+    ],
+    SystemMonitor: [
+      'High memory usage detected: 85%',
+      'CPU usage within normal parameters',
+      'Disk space check completed',
+      'Network latency monitoring active',
+      'System health check passed'
+    ],
+    ExternalService: [
+      'Failed to connect to external API endpoint',
+      'Blockchain sync completed successfully',
+      'External wallet service responded',
+      'API rate limit warning received',
+      'Third-party service integration active'
+    ],
+    DatabaseService: [
+      'Database backup completed successfully',
+      'Query optimization applied',
+      'Connection pool status healthy',
+      'Data integrity check passed',
+      'Transaction log rotated'
+    ],
+    MiningCalculator: [
+      'Hash rate calculation: 15420 H/s',
+      'Difficulty adjustment calculated',
+      'Profitability metrics updated',
+      'Mining efficiency optimized',
+      'Performance benchmarks recorded'
     ]
   }
 
   const level = levels[Math.floor(Math.random() * levels.length)]
-  const category = categories[Math.floor(Math.random() * categories.length)]
-  const message = messages[category][Math.floor(Math.random() * messages[category].length)]
+  const source = sources[Math.floor(Math.random() * sources.length)]
+  const message = messages[source as keyof typeof messages][Math.floor(Math.random() * messages[source as keyof typeof messages].length)]
 
   return {
-    id: Date.now().toString() + Math.random(),
+    id: `log_${Date.now()}_${Math.random()}`,
     timestamp: new Date(),
     level,
-    category,
-    message,
-    userId: Math.random() > 0.7 ? `user_${Math.floor(Math.random() * 100)}` : undefined,
-    ip: `192.168.1.${Math.floor(Math.random() * 255)}`
+    source,
+    message
   }
-}
-
-// Initialize with some mock logs
-const initializeLogs = () => {
-  const initialLogs: LogEntry[] = []
-  for (let i = 0; i < 50; i++) {
-    const log = generateMockLog()
-    log.timestamp = new Date(Date.now() - (50 - i) * 60000) // Space logs 1 minute apart
-    initialLogs.push(log)
-  }
-  logs.value = initialLogs
 }
 
 const addNewLog = () => {
   if (isLive.value) {
     logs.value.push(generateMockLog())
     
-    // Keep only last 500 logs for performance
-    if (logs.value.length > 500) {
+    // Keep only last 200 logs for performance
+    if (logs.value.length > 200) {
       logs.value.shift()
     }
+    
+    updateFilteredLogs()
     
     if (autoScroll.value) {
       scrollToBottom()
@@ -113,18 +112,18 @@ const scrollToBottom = () => {
   }
 }
 
-const filteredLogs = ref<LogEntry[]>([])
+const filteredLogs = ref<MockServerLog[]>([])
 
 const updateFilteredLogs = () => {
   filteredLogs.value = logs.value.filter(log => {
     const matchesLevel = selectedLevel.value === 'all' || log.level === selectedLevel.value
-    const matchesCategory = selectedCategory.value === 'all' || log.category === selectedCategory.value
+    const matchesSource = selectedSource.value === 'all' || log.source === selectedSource.value
     const matchesSearch = searchQuery.value === '' || 
                          log.message.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                         log.category.toLowerCase().includes(searchQuery.value.toLowerCase())
+                         log.source.toLowerCase().includes(searchQuery.value.toLowerCase())
     
-    return matchesLevel && matchesCategory && matchesSearch
-  }).slice(-200) // Show only last 200 filtered logs for performance
+    return matchesLevel && matchesSource && matchesSearch
+  }).slice(-100) // Show only last 100 filtered logs for performance
 }
 
 const toggleLive = () => {
@@ -151,31 +150,32 @@ const exportLogs = () => {
 
 const getLevelColor = (level: string) => {
   switch (level) {
-    case 'success': return 'text-accent-green'
     case 'info': return 'text-primary-400'
     case 'warning': return 'text-yellow-400'
     case 'error': return 'text-red-400'
+    case 'debug': return 'text-gray-400'
     default: return 'text-gray-400'
   }
 }
 
 const getLevelIcon = (level: string) => {
   switch (level) {
-    case 'success': return 'fas fa-check-circle'
     case 'info': return 'fas fa-info-circle'
     case 'warning': return 'fas fa-exclamation-triangle'
     case 'error': return 'fas fa-times-circle'
+    case 'debug': return 'fas fa-bug'
     default: return 'fas fa-circle'
   }
 }
 
-const getCategoryIcon = (category: string) => {
-  switch (category) {
-    case 'system': return 'fas fa-server'
-    case 'mining': return 'fas fa-hammer'
-    case 'user': return 'fas fa-user'
-    case 'security': return 'fas fa-shield-alt'
-    case 'api': return 'fas fa-exchange-alt'
+const getSourceIcon = (source: string) => {
+  switch (source) {
+    case 'MiningService': return 'fas fa-hammer'
+    case 'WebSocketHandler': return 'fas fa-plug'
+    case 'SystemMonitor': return 'fas fa-chart-line'
+    case 'ExternalService': return 'fas fa-exchange-alt'
+    case 'DatabaseService': return 'fas fa-database'
+    case 'MiningCalculator': return 'fas fa-calculator'
     default: return 'fas fa-file-alt'
   }
 }
@@ -189,22 +189,16 @@ const formatTime = (date: Date) => {
   })
 }
 
-// Watch for changes and update filtered logs
-const watchFilters = () => {
+// Watch for filter changes
+watch([selectedLevel, selectedSource, searchQuery], () => {
   updateFilteredLogs()
-}
+})
 
-onMounted(() => {
-  initializeLogs()
-  updateFilteredLogs()
+onMounted(async () => {
+  await loadLogs()
   
-  // Add new logs every 3-8 seconds
-  logsInterval.value = window.setInterval(() => {
-    if (Math.random() > 0.3) { // 70% chance to add a log
-      addNewLog()
-      updateFilteredLogs()
-    }
-  }, Math.random() * 5000 + 3000)
+  // Start live log simulation
+  logsInterval.value = window.setInterval(addNewLog, 5000) // Add new log every 5 seconds
 })
 
 onUnmounted(() => {
@@ -212,23 +206,6 @@ onUnmounted(() => {
     clearInterval(logsInterval.value)
   }
 })
-
-// Watch filters
-const unwatchLevel = ref(selectedLevel.value)
-const unwatchCategory = ref(selectedCategory.value)
-const unwatchSearch = ref(searchQuery.value)
-
-// Simple reactivity for filters
-setInterval(() => {
-  if (unwatchLevel.value !== selectedLevel.value || 
-      unwatchCategory.value !== selectedCategory.value || 
-      unwatchSearch.value !== searchQuery.value) {
-    unwatchLevel.value = selectedLevel.value
-    unwatchCategory.value = selectedCategory.value
-    unwatchSearch.value = searchQuery.value
-    updateFilteredLogs()
-  }
-}, 500)
 </script>
 
 <template>
@@ -274,26 +251,27 @@ setInterval(() => {
             class="w-full bg-white/5 border border-white/10 text-white px-4 py-2 rounded-lg focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all duration-200"
           >
             <option value="all">All Levels</option>
-            <option value="success">Success</option>
             <option value="info">Info</option>
             <option value="warning">Warning</option>
             <option value="error">Error</option>
+            <option value="debug">Debug</option>
           </select>
         </div>
 
-        <!-- Category Filter -->
+        <!-- Source Filter -->
         <div>
-          <label class="block text-gray-300 text-sm font-medium mb-2">Category</label>
+          <label class="block text-gray-300 text-sm font-medium mb-2">Source</label>
           <select
-            v-model="selectedCategory"
+            v-model="selectedSource"
             class="w-full bg-white/5 border border-white/10 text-white px-4 py-2 rounded-lg focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all duration-200"
           >
-            <option value="all">All Categories</option>
-            <option value="system">System</option>
-            <option value="mining">Mining</option>
-            <option value="user">User</option>
-            <option value="security">Security</option>
-            <option value="api">API</option>
+            <option value="all">All Sources</option>
+            <option value="MiningService">MiningService</option>
+            <option value="WebSocketHandler">WebSocketHandler</option>
+            <option value="SystemMonitor">SystemMonitor</option>
+            <option value="ExternalService">ExternalService</option>
+            <option value="DatabaseService">DatabaseService</option>
+            <option value="MiningCalculator">MiningCalculator</option>
           </select>
         </div>
 
@@ -378,27 +356,17 @@ setInterval(() => {
               </span>
             </div>
             
-            <!-- Category -->
+            <!-- Source -->
             <div class="flex items-center space-x-1 min-w-0">
-              <i :class="getCategoryIcon(log.category)" class="text-gray-400 text-xs"></i>
+              <i :class="getSourceIcon(log.source)" class="text-gray-400 text-xs"></i>
               <span class="text-gray-400 text-xs uppercase whitespace-nowrap">
-                {{ log.category }}
+                {{ log.source }}
               </span>
             </div>
             
             <!-- Message -->
             <span class="text-white flex-1">
               {{ log.message }}
-            </span>
-            
-            <!-- User ID -->
-            <span v-if="log.userId" class="text-primary-400 text-xs whitespace-nowrap">
-              {{ log.userId }}
-            </span>
-            
-            <!-- IP -->
-            <span v-if="log.ip" class="text-accent-teal text-xs whitespace-nowrap">
-              {{ log.ip }}
             </span>
           </div>
           
@@ -415,16 +383,6 @@ setInterval(() => {
         <div class="flex items-center space-x-2 mb-2">
           <i class="fas fa-check-circle text-accent-green"></i>
           <span class="text-gray-300 text-sm">Success</span>
-        </div>
-        <p class="text-2xl font-bold text-white">
-          {{ logs.filter(l => l.level === 'success').length }}
-        </p>
-      </div>
-      
-      <div class="glass-card p-4 rounded-xl">
-        <div class="flex items-center space-x-2 mb-2">
-          <i class="fas fa-info-circle text-primary-400"></i>
-          <span class="text-gray-300 text-sm">Info</span>
         </div>
         <p class="text-2xl font-bold text-white">
           {{ logs.filter(l => l.level === 'info').length }}
