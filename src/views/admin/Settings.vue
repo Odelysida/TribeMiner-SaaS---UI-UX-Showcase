@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAuthStore } from '../../stores/authStore'
 
-const authStore = useAuthStore()
-
-// Pool Settings
-const poolSettings = ref({
+const settings = ref({
   difficulty: 2048,
   blockReward: 1250,
   minPayout: 10,
@@ -86,7 +82,7 @@ const resetToDefaults = () => {
   }
   
   // Reset to default values
-  poolSettings.value = {
+  settings.value = {
     difficulty: 1024,
     blockReward: 1000,
     minPayout: 5,
@@ -138,7 +134,7 @@ const resetToDefaults = () => {
 
 const exportConfig = () => {
   const config = {
-    pool: poolSettings.value,
+    pool: settings.value,
     security: securitySettings.value,
     system: systemSettings.value,
     notifications: notificationSettings.value,
@@ -164,7 +160,7 @@ const importConfig = (event: Event) => {
     try {
       const config = JSON.parse(e.target?.result as string)
       
-      if (config.pool) poolSettings.value = { ...poolSettings.value, ...config.pool }
+      if (config.pool) settings.value = { ...settings.value, ...config.pool }
       if (config.security) securitySettings.value = { ...securitySettings.value, ...config.security }
       if (config.system) systemSettings.value = { ...systemSettings.value, ...config.system }
       if (config.notifications) notificationSettings.value = { ...notificationSettings.value, ...config.notifications }
@@ -234,7 +230,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Pool Name</label>
             <input
-              v-model="poolSettings.poolName"
+              v-model="settings.poolName"
               type="text"
               class="w-full bg-white/5 border border-white/10 text-white placeholder-gray-400 px-4 py-3 rounded-lg focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all duration-200"
             />
@@ -243,7 +239,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Mining Difficulty</label>
             <input
-              v-model.number="poolSettings.difficulty"
+              v-model.number="settings.difficulty"
               type="number"
               min="256"
               max="16384"
@@ -254,7 +250,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Block Reward (AUM)</label>
             <input
-              v-model.number="poolSettings.blockReward"
+              v-model.number="settings.blockReward"
               type="number"
               min="100"
               max="10000"
@@ -265,7 +261,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Minimum Payout (AUM)</label>
             <input
-              v-model.number="poolSettings.minPayout"
+              v-model.number="settings.minPayout"
               type="number"
               min="1"
               max="100"
@@ -276,7 +272,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Max Concurrent Miners</label>
             <input
-              v-model.number="poolSettings.maxMiners"
+              v-model.number="settings.maxMiners"
               type="number"
               min="10"
               max="10000"
@@ -287,7 +283,7 @@ const importConfig = (event: Event) => {
           <div>
             <label class="block text-gray-300 text-sm font-medium mb-2">Pool Fee (%)</label>
             <input
-              v-model.number="poolSettings.feePercentage"
+              v-model.number="settings.feePercentage"
               type="number"
               min="0"
               max="10"
@@ -300,7 +296,7 @@ const importConfig = (event: Event) => {
         <div class="mt-6">
           <label class="block text-gray-300 text-sm font-medium mb-2">Pool Description</label>
           <textarea
-            v-model="poolSettings.poolDescription"
+            v-model="settings.poolDescription"
             rows="3"
             class="w-full bg-white/5 border border-white/10 text-white placeholder-gray-400 px-4 py-3 rounded-lg focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all duration-200 resize-none"
           ></textarea>
@@ -309,7 +305,7 @@ const importConfig = (event: Event) => {
         <div class="mt-6">
           <label class="flex items-center space-x-3">
             <input
-              v-model="poolSettings.autoAdjustDifficulty"
+              v-model="settings.autoAdjustDifficulty"
               type="checkbox"
               class="rounded bg-white/5 border-white/10 text-primary-500 focus:ring-primary-500/50"
             />

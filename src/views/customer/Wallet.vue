@@ -85,6 +85,18 @@ const getTransactionColor = (type: string, amount: number) => {
   if (type === 'reward' || amount > 0) return 'text-accent-green'
   return 'text-red-400'
 }
+
+const copyAddress = async () => {
+  if (authStore.user?.walletAddress) {
+    try {
+      await navigator.clipboard.writeText(authStore.user.walletAddress)
+      // You could add a toast notification here
+      console.log('Address copied to clipboard')
+    } catch (err) {
+      console.error('Failed to copy address:', err)
+    }
+  }
+}
 </script>
 
 <template>
@@ -126,7 +138,7 @@ const getTransactionColor = (type: string, amount: number) => {
         </p>
         <button
           v-if="authStore.user?.walletAddress"
-          @click="navigator.clipboard.writeText(authStore.user.walletAddress)"
+          @click="copyAddress"
           class="text-primary-400 hover:text-primary-300 text-sm transition-colors duration-200"
         >
           <i class="fas fa-copy mr-1"></i>

@@ -1,82 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '../../stores/authStore'
-import type { User } from '../../stores/authStore'
+import { MockDataService } from '../../lib/mockData'
+import type { MockUser } from '../../lib/mockData'
 
-const authStore = useAuthStore()
-
-// Mock user data - in real app this would come from API
-const users = ref<(User & { status: 'active' | 'inactive' | 'banned', earnings: number, hashRate: number })[]>([
-  {
-    id: '1',
-    username: 'admin',
-    email: 'admin@tribeminer.com',
-    role: 'admin',
-    avatar: 'https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff',
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-    status: 'active',
-    earnings: 0,
-    hashRate: 0
-  },
-  {
-    id: '2', 
-    username: 'user',
-    email: 'user@tribeminer.com',
-    role: 'customer',
-    avatar: 'https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff',
-    walletAddress: 'DEMO_WALLET_ADDRESS',
-    createdAt: new Date('2024-01-15'),
-    lastLogin: new Date(),
-    status: 'active',
-    earnings: 1250.75,
-    hashRate: 450
-  },
-  {
-    id: '3',
-    username: 'alice_miner',
-    email: 'alice@example.com',
-    role: 'customer',
-    avatar: 'https://ui-avatars.com/api/?name=Alice&background=10b981&color=fff',
-    walletAddress: '0x742b70151cd3bc5b5fcbae5b9e96fb75ec8c2a20',
-    createdAt: new Date('2024-02-01'),
-    lastLogin: new Date(Date.now() - 3600000), // 1 hour ago
-    status: 'active',
-    earnings: 890.25,
-    hashRate: 320
-  },
-  {
-    id: '4',
-    username: 'bob_crypto',
-    email: 'bob@example.com', 
-    role: 'customer',
-    avatar: 'https://ui-avatars.com/api/?name=Bob&background=f59e0b&color=fff',
-    walletAddress: '0x8ba1f109551bd432803012645hac136c3c16bf6',
-    createdAt: new Date('2024-01-20'),
-    lastLogin: new Date(Date.now() - 7200000), // 2 hours ago
-    status: 'inactive',
-    earnings: 340.50,
-    hashRate: 0
-  },
-  {
-    id: '5',
-    username: 'charlie_pool',
-    email: 'charlie@example.com',
-    role: 'customer', 
-    avatar: 'https://ui-avatars.com/api/?name=Charlie&background=ef4444&color=fff',
-    walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    createdAt: new Date('2024-01-10'),
-    lastLogin: new Date(Date.now() - 86400000), // 1 day ago
-    status: 'banned',
-    earnings: 0,
-    hashRate: 0
-  }
-])
+const users = ref<MockUser[]>([])
+const isLoading = ref(false)
+const error = ref('')
 
 const searchQuery = ref('')
 const selectedRole = ref<'all' | 'admin' | 'customer'>('all')
 const selectedStatus = ref<'all' | 'active' | 'inactive' | 'banned'>('all')
-const sortBy = ref<'username' | 'createdAt' | 'earnings' | 'lastLogin'>('createdAt')
+const sortBy = ref<'username' | 'createdAt' | 'totalMined' | 'lastLogin'>('createdAt')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const filteredUsers = computed(() => {
@@ -84,7 +18,9 @@ const filteredUsers = computed(() => {
     const matchesSearch = user.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchQuery.value.toLowerCase())
     const matchesRole = selectedRole.value === 'all' || user.role === selectedRole.value
-    const matchesStatus = selectedStatus.value === 'all' || user.status === selectedStatus.value
+    const matchesStatus = selectedStatus.value === 'all' || 
+                         (selectedStatus.value === 'active' && user.isActive) ||
+                         (selectedStatus.value === 'inactive' && !user.isActive)
     
     return matchesSearch && matchesRole && matchesStatus
   })
@@ -101,9 +37,9 @@ const filteredUsers = computed(() => {
         aVal = a.createdAt.getTime()
         bVal = b.createdAt.getTime()
         break
-      case 'earnings':
-        aVal = a.earnings
-        bVal = b.earnings
+      case 'totalMined':
+        aVal = a.totalMined
+        bVal = b.totalMined
         break
       case 'lastLogin':
         aVal = a.lastLogin.getTime()
@@ -122,13 +58,26 @@ const filteredUsers = computed(() => {
 })
 
 const totalUsers = computed(() => users.value.length)
-const activeUsers = computed(() => users.value.filter(u => u.status === 'active').length)
-const totalEarnings = computed(() => users.value.reduce((sum, u) => sum + u.earnings, 0))
+const activeUsers = computed(() => users.value.filter(u => u.isActive).length)
+const totalEarnings = computed(() => users.value.reduce((sum, u) => sum + u.totalMined, 0))
 
-const selectedUser = ref<User | null>(null)
+const selectedUser = ref<MockUser | null>(null)
 const showUserModal = ref(false)
 
-const openUserModal = (user: User) => {
+const loadUsers = async () => {
+  isLoading.value = true
+  error.value = ''
+  try {
+    users.value = await MockDataService.getUsers()
+  } catch (err) {
+    error.value = 'Failed to load users'
+    console.error('Failed to load users:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const openUserModal = (user: MockUser) => {
   selectedUser.value = user
   showUserModal.value = true
 }
@@ -138,26 +87,34 @@ const closeUserModal = () => {
   showUserModal.value = false
 }
 
-const banUser = (userId: string) => {
-  const user = users.value.find(u => u.id === userId)
-  if (user) {
-    user.status = 'banned'
-    user.hashRate = 0
+const banUser = async (userId: string) => {
+  try {
+    await MockDataService.updateUser(userId, { isActive: false })
+    await loadUsers() // Refresh the list
+  } catch (err) {
+    console.error('Failed to ban user:', err)
+    alert('Failed to ban user')
   }
 }
 
-const unbanUser = (userId: string) => {
-  const user = users.value.find(u => u.id === userId)
-  if (user) {
-    user.status = 'active'
+const unbanUser = async (userId: string) => {
+  try {
+    await MockDataService.updateUser(userId, { isActive: true })
+    await loadUsers() // Refresh the list
+  } catch (err) {
+    console.error('Failed to unban user:', err)
+    alert('Failed to unban user')
   }
 }
 
-const deleteUser = (userId: string) => {
+const deleteUser = async (userId: string) => {
   if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-    const index = users.value.findIndex(u => u.id === userId)
-    if (index > -1) {
-      users.value.splice(index, 1)
+    try {
+      await MockDataService.deleteUser(userId)
+      await loadUsers() // Refresh the list
+    } catch (err) {
+      console.error('Failed to delete user:', err)
+      alert('Failed to delete user')
     }
   }
 }
@@ -172,26 +129,20 @@ const formatDate = (date: Date) => {
   })
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'active': return 'text-accent-green'
-    case 'inactive': return 'text-yellow-400'
-    case 'banned': return 'text-red-400'
-    default: return 'text-gray-400'
-  }
+const getStatusColor = (isActive: boolean) => {
+  return isActive ? 'text-accent-green' : 'text-red-400'
 }
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'active': return 'fas fa-check-circle'
-    case 'inactive': return 'fas fa-pause-circle'
-    case 'banned': return 'fas fa-ban'
-    default: return 'fas fa-question-circle'
-  }
+const getStatusIcon = (isActive: boolean) => {
+  return isActive ? 'fas fa-check-circle' : 'fas fa-ban'
+}
+
+const getStatusText = (isActive: boolean) => {
+  return isActive ? 'active' : 'banned'
 }
 
 onMounted(() => {
-  // In real app, fetch users from API
+  loadUsers()
 })
 </script>
 
@@ -247,7 +198,7 @@ onMounted(() => {
             <i class="fas fa-tachometer-alt text-purple-400"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-white">{{ users.filter(u => u.status === 'active').reduce((sum, u) => sum + u.hashRate, 0) }}</p>
+        <p class="text-3xl font-bold text-white">{{ users.filter(u => u.isActive).reduce((sum, u) => sum + u.totalMined, 0) }}</p>
         <p class="text-gray-400 text-sm">Total H/s</p>
       </div>
     </div>
@@ -349,15 +300,15 @@ onMounted(() => {
               </td>
               <td class="p-4">
                 <div class="flex items-center space-x-2">
-                  <i :class="[getStatusIcon(user.status), getStatusColor(user.status)]"></i>
-                  <span :class="getStatusColor(user.status)" class="capitalize font-medium">{{ user.status }}</span>
+                  <i :class="[getStatusIcon(user.isActive), getStatusColor(user.isActive)]"></i>
+                  <span :class="getStatusColor(user.isActive)" class="capitalize font-medium">{{ getStatusText(user.isActive) }}</span>
                 </div>
               </td>
               <td class="p-4">
-                <span class="text-white font-medium">{{ user.earnings.toLocaleString() }} AUM</span>
+                <span class="text-white font-medium">{{ user.totalMined.toLocaleString() }} AUM</span>
               </td>
               <td class="p-4">
-                <span class="text-white">{{ user.hashRate }} H/s</span>
+                <span class="text-white">{{ user.totalMined }} H/s</span>
               </td>
               <td class="p-4">
                 <span class="text-gray-300 text-sm">{{ formatDate(user.lastLogin) }}</span>
@@ -373,7 +324,7 @@ onMounted(() => {
                   </button>
                   
                   <button
-                    v-if="user.status === 'active' && user.role !== 'admin'"
+                    v-if="user.isActive && user.role !== 'admin'"
                     @click="banUser(user.id)"
                     class="text-red-400 hover:text-red-300 transition-colors duration-200"
                     title="Ban User"
@@ -382,7 +333,7 @@ onMounted(() => {
                   </button>
                   
                   <button
-                    v-if="user.status === 'banned'"
+                    v-if="!user.isActive"
                     @click="unbanUser(user.id)"
                     class="text-accent-green hover:text-green-300 transition-colors duration-200"
                     title="Unban User"
@@ -433,12 +384,11 @@ onMounted(() => {
                 <span 
                   class="text-xs px-2 py-1 rounded-full border capitalize"
                   :class="{
-                    'bg-accent-green/20 text-accent-green border-accent-green/30': selectedUser.status === 'active',
-                    'bg-yellow-500/20 text-yellow-300 border-yellow-500/30': selectedUser.status === 'inactive',
-                    'bg-red-500/20 text-red-300 border-red-500/30': selectedUser.status === 'banned'
+                    'bg-accent-green/20 text-accent-green border-accent-green/30': selectedUser.isActive,
+                    'bg-red-500/20 text-red-300 border-red-500/30': !selectedUser.isActive
                   }"
                 >
-                  {{ selectedUser.status }}
+                  {{ getStatusText(selectedUser.isActive) }}
                 </span>
               </div>
             </div>
@@ -452,7 +402,7 @@ onMounted(() => {
             </div>
             <div class="bg-white/5 p-4 rounded-lg">
               <label class="text-gray-400 text-sm">Total Earnings</label>
-              <p class="text-white font-semibold">{{ selectedUser.earnings?.toLocaleString() || 0 }} AUM</p>
+              <p class="text-white font-semibold">{{ selectedUser.totalMined?.toLocaleString() || 0 }} AUM</p>
             </div>
             <div class="bg-white/5 p-4 rounded-lg">
               <label class="text-gray-400 text-sm">Join Date</label>

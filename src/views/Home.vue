@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { useMiningStore } from '../stores/miningStore'
 
 const router = useRouter()
-const store = useMiningStore()
 
 const startMining = () => {
-  router.push('/dashboard')
+  router.push('/login')
 }
 </script>
 

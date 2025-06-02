@@ -12,8 +12,6 @@ export interface User {
   lastLogin: Date
 }
 
-const API_BASE_URL = 'http://localhost:3000'
-
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem('auth_token'))

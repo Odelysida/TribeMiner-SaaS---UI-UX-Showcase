@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useMiningStore } from '../../stores/miningStore'
+import { MockDataService } from '../../lib/mockData'
 
 const miningStore = useMiningStore()
 
 const systemStats = ref({
-  uptime: '2d 14h 32m',
-  totalUsers: 1247,
-  activeUsers: 89,
-  totalHashRate: 2847000,
-  totalRewards: 156789,
+  uptime: '7 days, 14 hours, 23 minutes',
+  totalUsers: 0,
+  activeUsers: 0,
+  totalHashRate: 0,
+  totalRewards: 0,
   serverLoad: 67,
   memoryUsage: 78,
   networkTraffic: 234.5
@@ -94,7 +95,8 @@ const broadcastMessage = ref('')
 const broadcastType = ref('info')
 const statsInterval = ref<number>()
 
-onMounted(() => {
+onMounted(async () => {
+  await loadSystemStats()
   miningStore.fetchPoolStats()
   
   // Update stats every 30 seconds
@@ -110,13 +112,42 @@ onUnmounted(() => {
   }
 })
 
-const updateSystemStats = () => {
-  // Simulate real-time stats updates
-  systemStats.value.activeUsers = Math.floor(Math.random() * 20) + 80
-  systemStats.value.totalHashRate = Math.floor(Math.random() * 500000) + 2500000
-  systemStats.value.serverLoad = Math.floor(Math.random() * 30) + 50
-  systemStats.value.memoryUsage = Math.floor(Math.random() * 20) + 70
-  systemStats.value.networkTraffic = Math.floor(Math.random() * 100) + 200
+const loadSystemStats = async () => {
+  try {
+    const stats = await MockDataService.getSystemStats()
+    systemStats.value = {
+      ...systemStats.value,
+      totalUsers: stats.totalUsers,
+      activeUsers: stats.activeMiners,
+      totalHashRate: stats.totalHashRate,
+      totalRewards: Math.floor(stats.totalMined),
+      uptime: stats.serverUptime,
+      memoryUsage: stats.memoryUsage,
+      serverLoad: stats.cpuUsage,
+      networkTraffic: stats.networkLatency * 10 // Convert to MB/s for display
+    }
+  } catch (error) {
+    console.error('Failed to load system stats:', error)
+  }
+}
+
+const updateSystemStats = async () => {
+  // Reload fresh stats from mock service
+  await loadSystemStats()
+  
+  // Add some randomness for real-time feel
+  systemStats.value.activeUsers = Math.floor(Math.random() * 5) + systemStats.value.activeUsers - 2
+  systemStats.value.totalHashRate = Math.floor(Math.random() * 500) + systemStats.value.totalHashRate - 250
+  systemStats.value.serverLoad = Math.floor(Math.random() * 10) + systemStats.value.serverLoad - 5
+  systemStats.value.memoryUsage = Math.floor(Math.random() * 10) + systemStats.value.memoryUsage - 5
+  systemStats.value.networkTraffic = Math.floor(Math.random() * 50) + systemStats.value.networkTraffic - 25
+  
+  // Keep values in reasonable ranges
+  systemStats.value.activeUsers = Math.max(0, systemStats.value.activeUsers)
+  systemStats.value.totalHashRate = Math.max(0, systemStats.value.totalHashRate)
+  systemStats.value.serverLoad = Math.max(0, Math.min(100, systemStats.value.serverLoad))
+  systemStats.value.memoryUsage = Math.max(0, Math.min(100, systemStats.value.memoryUsage))
+  systemStats.value.networkTraffic = Math.max(0, systemStats.value.networkTraffic)
 }
 
 const sendBroadcast = () => {
@@ -137,13 +168,6 @@ const sendBroadcast = () => {
   
   showBroadcastModal.value = false
   broadcastMessage.value = ''
-}
-
-const formatTime = (date: Date) => {
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
 }
 
 const formatRelativeTime = (date: Date) => {

@@ -1,18 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-const API_BASE_URL = 'http://localhost:3000'
+// Mock data for testing
+const MOCK_POOL_STATS = {
+  activeMiners: 42,
+  totalHashRate: 15420,
+  poolBalance: 2847.56,
+  blocksFound: 156,
+  efficiency: 98.5
+}
+
+const MOCK_REWARDS_DATA = {
+  'DEMO_WALLET_ADDRESS': 125.43,
+  'TEST_WALLET_1': 89.21,
+  'TEST_WALLET_2': 234.67
+}
 
 export const useMiningStore = defineStore('mining', () => {
   const isConnected = ref(false)
   const isMining = ref(false)
   const hashRate = ref(0)
   const rewards = ref(0)
-  const poolStats = ref({
-    activeMiners: 0,
-    totalHashRate: 0,
-    poolBalance: 0
-  })
+  const poolStats = ref({ ...MOCK_POOL_STATS })
   const error = ref('')
   const isLoading = ref(false)
 
@@ -22,110 +31,47 @@ export const useMiningStore = defineStore('mining', () => {
   async function connectWallet(address: string) {
     isLoading.value = true
     error.value = ''
-    walletAddress.value = address
     
-    try {
-      const response = await fetch(`${API_BASE_URL}/pool/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ walletAddress: address })
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      if (data.success) {
-        isConnected.value = true
-        error.value = ''
-      } else {
-        error.value = data.message || 'Failed to connect wallet'
-      }
-    } catch (err) {
-      console.error('Failed to connect wallet:', err)
-      error.value = 'Failed to connect to mining pool. Please try again.'
-      isConnected.value = false
-    } finally {
-      isLoading.value = false
-    }
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    walletAddress.value = address
+    isConnected.value = true
+    
+    // Load mock rewards for this wallet
+    rewards.value = MOCK_REWARDS_DATA[address as keyof typeof MOCK_REWARDS_DATA] || 0
+    
+    isLoading.value = false
   }
 
   async function fetchPoolStats() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/pool/stats`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      poolStats.value = data
-      error.value = ''
-    } catch (err) {
-      console.error('Failed to fetch pool stats:', err)
-      error.value = 'Failed to fetch pool statistics'
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Add some randomness to make it feel more realistic
+    poolStats.value = {
+      activeMiners: MOCK_POOL_STATS.activeMiners + Math.floor(Math.random() * 10 - 5),
+      totalHashRate: MOCK_POOL_STATS.totalHashRate + Math.floor(Math.random() * 1000 - 500),
+      poolBalance: MOCK_POOL_STATS.poolBalance + Math.random() * 100 - 50,
+      blocksFound: MOCK_POOL_STATS.blocksFound + Math.floor(Math.random() * 10 - 5),
+      efficiency: MOCK_POOL_STATS.efficiency + Math.random() * 0.5
     }
+    error.value = ''
   }
 
   async function fetchRewards() {
     if (!walletAddress.value) return
     
-    try {
-      const response = await fetch(`${API_BASE_URL}/rewards/${walletAddress.value}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      rewards.value = data.rewards
-      error.value = ''
-    } catch (err) {
-      console.error('Failed to fetch rewards:', err)
-      error.value = 'Failed to fetch mining rewards'
-    }
-  }
-
-  // WebSocket connection for real-time updates
-  let ws: WebSocket | null = null
-  let miningInterval: number | null = null
-
-  function connectWebSocket() {
-    if (ws && ws.readyState === WebSocket.OPEN) return
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300))
     
-    try {
-      ws = new WebSocket(`ws://localhost:3000/mining-status`)
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected')
-        error.value = ''
-      }
-      
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.hashRate) {
-          hashRate.value = data.hashRate
-        }
-      }
-
-      ws.onclose = () => {
-        console.log('WebSocket disconnected')
-        ws = null
-        if (isMining.value) {
-          // Try to reconnect after 5 seconds if still mining
-          setTimeout(connectWebSocket, 5000)
-        }
-      }
-
-      ws.onerror = (err) => {
-        console.error('WebSocket error:', err)
-        error.value = 'WebSocket connection failed'
-        ws?.close()
-      }
-    } catch (err) {
-      console.error('Failed to create WebSocket:', err)
-      error.value = 'Failed to establish real-time connection'
-    }
+    // Get mock rewards or default to 0
+    rewards.value = MOCK_REWARDS_DATA[walletAddress.value as keyof typeof MOCK_REWARDS_DATA] || 0
+    error.value = ''
   }
+
+  // Mock mining simulation
+  let miningInterval: number | null = null
 
   function startMining() {
     if (!isWalletConnected.value) {
@@ -141,38 +87,28 @@ export const useMiningStore = defineStore('mining', () => {
     isMining.value = true
     error.value = ''
     
-    // Start WebSocket connection
-    connectWebSocket()
-    
     // Simulate mining with increasing hash rate
     miningInterval = window.setInterval(() => {
       if (isMining.value) {
-        // Gradually increase hash rate
-        hashRate.value = Math.min(hashRate.value + Math.random() * 100, 2000)
+        // Gradually increase hash rate with some randomness
+        const targetHashRate = 1500 + Math.random() * 500
+        const currentRate = hashRate.value
+        const increment = (targetHashRate - currentRate) * 0.1 + Math.random() * 50
+        hashRate.value = Math.min(currentRate + increment, 2000)
         
-        // Send mining update to server via WebSocket
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'mining_update',
-            walletAddress: walletAddress.value,
-            hashRate: hashRate.value
-          }))
+        // Occasionally update rewards (simulate finding blocks)
+        if (Math.random() < 0.1) { // 10% chance every interval
+          rewards.value += Math.random() * 0.5
         }
       }
     }, 2000)
     
-    console.log('Mining started')
+    console.log('Mining started (mock mode)')
   }
 
   function stopMining() {
     isMining.value = false
     hashRate.value = 0
-    
-    // Close WebSocket connection
-    if (ws) {
-      ws.close()
-      ws = null
-    }
     
     // Clear mining simulation interval
     if (miningInterval) {
@@ -191,6 +127,54 @@ export const useMiningStore = defineStore('mining', () => {
     error.value = ''
   }
 
+  // Mock server connection methods for compatibility
+  async function connectToServer() {
+    isLoading.value = true
+    error.value = ''
+    
+    // Simulate connection delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    isConnected.value = true
+    isLoading.value = false
+    
+    // Start fetching pool stats
+    fetchPoolStats()
+    
+    console.log('Connected to server (mock mode)')
+  }
+
+  async function disconnectFromServer() {
+    stopMining()
+    isConnected.value = false
+    error.value = ''
+    
+    console.log('Disconnected from server')
+  }
+
+  async function joinPool() {
+    if (!isWalletConnected.value) {
+      error.value = 'Please connect your wallet first'
+      return
+    }
+    
+    if (!isConnected.value) {
+      await connectToServer()
+    }
+    
+    // Simulate joining pool
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    console.log('Joined mining pool (mock mode)')
+  }
+
+  // Auto-update pool stats periodically
+  setInterval(() => {
+    if (!isLoading.value) {
+      fetchPoolStats()
+    }
+  }, 30000) // Update every 30 seconds
+
   return {
     isConnected,
     isMining,
@@ -203,6 +187,9 @@ export const useMiningStore = defineStore('mining', () => {
     isLoading,
     connectWallet,
     disconnectWallet,
+    connectToServer,
+    disconnectFromServer,
+    joinPool,
     fetchPoolStats,
     fetchRewards,
     startMining,
